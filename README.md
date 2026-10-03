@@ -1,958 +1,255 @@
 # CreatorOps
 
-## Content Planning & Approval SaaS
+**Content planning and approval SaaS for modern marketing teams.**
 
-CreatorOps is a cloud-based Marketing Content Operations platform designed to centralize the complete content lifecycle — from client and campaign setup to content creation, approval, scheduling, publishing, analytics, and reporting.
+CreatorOps is a cloud-based Marketing Content Operations platform that centralizes the full content lifecycle: client and campaign setup, content creation, internal and client approval, scheduling, publishing, analytics, and reporting. It replaces scattered spreadsheets, email threads, chat apps, file drives, and separate analytics tools with one role-based workspace.
 
-The platform replaces fragmented workflows involving spreadsheets, email, messaging applications, file drives, and separate analytics tools with a single role-based workspace.
+> Plan → Create → Review → Approve → Publish → Analyze
 
----
-
-## Live Application
-
-**Production Deployment**
-
-https://creatorops-gowshika-m-s-projects.vercel.app
-
-**GitHub Repository**
-
-https://github.com/Gowshii26/creatorops
+**Live demo:** https://creatorops-gowshika-m-s-projects.vercel.app
+**Repository:** https://github.com/Gowshii26/creatorops
 
 ---
 
-# 1. Project Overview
+## Table of Contents
 
-Marketing teams often manage content using multiple disconnected tools:
-
-- Spreadsheets for content calendars
-- Cloud drives for media storage
-- Email and messaging applications for feedback
-- Separate tools for publishing
-- Separate dashboards for campaign analytics
-
-This fragmented workflow creates several problems:
-
-- Scattered information
-- Manual status tracking
-- Unstructured feedback
-- Approval bottlenecks
-- Limited client visibility
-- Poor accountability
-- No unified audit history
-- Analytics disconnected from content planning
-
-CreatorOps solves this problem by providing one centralized SaaS platform for managing the complete marketing content lifecycle.
+- [Why CreatorOps](#why-creatorops)
+- [Features](#features)
+- [Approval Workflow](#approval-workflow)
+- [User Roles](#user-roles)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Data Model](#data-model)
+- [Security](#security)
+- [Getting Started](#getting-started)
+- [Deployment](#deployment)
+- [Project Structure](#project-structure)
+- [Demo Walkthrough](#demo-walkthrough)
+- [Testing](#testing)
+- [Roadmap](#roadmap)
 
 ---
 
-# 2. Problem Statement
+## Why CreatorOps
 
-Modern marketing teams frequently depend on multiple disconnected tools to manage content.
+Marketing teams typically juggle disconnected tools: spreadsheets for calendars, drives for media, WhatsApp or email for feedback, separate platforms for publishing, and another dashboard for analytics. The result is scattered information, manual status tracking, unstructured feedback, approval bottlenecks, limited client visibility, and no audit history.
 
-A typical workflow may involve:
+CreatorOps gives teams a single source of truth with a controlled, traceable workflow from first draft to performance report.
 
-1. Content ideas captured in chat or email
-2. Tasks tracked in spreadsheets
-3. Media stored separately in cloud drives
-4. Feedback exchanged through WhatsApp or email
-5. Client approvals collected manually
-6. Revisions performed without a clear history
-7. Publishing managed through separate platforms
-8. Analytics reviewed in a different system
+## Features
 
-This creates a fragmented workflow where teams lack a single source of truth.
+| Area | What it does |
+|---|---|
+| **Dashboard** | Active campaigns, content status, pending approvals, upcoming and published content, recent activity |
+| **Client management** | Create, update, and archive clients; link campaigns; assign client users |
+| **Campaign management** | Campaign status, dates, team assignments, content items, performance info |
+| **Content management** | Title, platform, content type, caption, description, creator, publish date/time, workflow status |
+| **Approval workflow** | Internal review, client review, change requests, approvals, all gated by role |
+| **Content calendar** | Visual view of scheduled content, campaign timelines, and scheduling workload |
+| **Media library** | Upload creative assets to Supabase Storage and link them to content items |
+| **Notifications** | Events for submission, client send-off, changes requested, approval, scheduling, publishing |
+| **Analytics** | Reach, engagements, engagement rate, and clicks per campaign and content item |
+| **Reports** | Campaign reports exported as PDF, with report history stored |
+| **Audit trail** | Records user actions, workflow transitions, content and admin activity, report generation |
+| **Administration** | Admins manage users, roles, and client assignments |
 
-CreatorOps addresses this by connecting planning, production, review, approval, publishing, analytics, and reporting into one continuous system.
-
----
-
-# 3. Proposed Solution
-
-CreatorOps provides a centralized cloud-based workspace for marketing teams, agencies, creators, managers, and clients.
-
-The platform integrates the following areas:
-
-- User and Role Management
-- Client Management
-- Campaign Management
-- Content Management
-- Content Calendar
-- Media Library
-- Approval Workflow
-- Publishing Status Tracking
-- Notifications
-- Analytics
-- Reports
-- Audit Trail
-
-The objective is to provide one transparent workflow from campaign planning through final publication and performance analysis.
-
----
-
-# 4. Core Workflow
-
-CreatorOps implements a structured content approval lifecycle.
+## Approval Workflow
 
 ```text
-Draft
-  ↓
-Internal Review
-  ↓
-Client Review
-  ↓
-Approved
-  ↓
-Scheduled
-  ↓
-Published
+Draft → Internal Review → Client Review → Approved → Scheduled → Published
 
-If changes are required:
-Client Review
-  ↓
-Changes Requested
-  ↓
-Creator Revision
-  ↓
-Internal Review
+Client Review → Changes Requested → Creator Revision → Internal Review
+```
 
-This provides a controlled and traceable workflow instead of relying on informal communication.
-5. User Roles
-CreatorOps implements Role-Based Access Control with four primary roles.
-Administrator
-Administrators have organization-level access.
-Main capabilities:
-- Manage users
-- Assign roles
-- Manage clients
-- Manage campaigns
-- Manage content
-- Access approval workflows
-- View analytics
-- Generate reports
-- View audit history
-- Access administration tools
-Demo identity:
-Name: Gowshii
-Role: Administrator
+Supported states: `draft`, `internal_review`, `client_review`, `changes_requested`, `approved`, `scheduled`, `published`, `archived`.
 
-Manager
-Managers coordinate campaign execution and approval workflows.
-Main capabilities:
-- Manage clients
-- Manage campaigns
-- Review content internally
-- Send content to clients
-- Schedule approved content
-- Mark content as published
-- View analytics
-- Generate reports
-- View audit activity
-Demo identity:
-Name: Priya
-Role: Manager
+## User Roles
 
-Creator
-Creators are responsible for preparing campaign content.
-Main capabilities:
-- View assigned campaigns
-- Create content
-- Edit content
-- Upload media assets
-- Submit content for internal review
-- View workflow status
-- View notifications
-Creators cannot approve or publish their own content.
-Demo identity:
-Name: Penny
-Role: Creator
+CreatorOps uses Role-Based Access Control with four roles.
 
-Client
-Clients receive controlled access to content associated with their assigned client account.
-Main capabilities:
-- View assigned campaigns
-- View submitted content
-- Approve content
-- Request changes
-- View relevant media
-- View campaign analytics
-- Access reports
-Clients cannot access unrelated clients or campaigns.
-Demo identity:
-Name: Lenord
-Role: Client
-Client: Lunara Cosmetics
+| Role | Responsibilities |
+|---|---|
+| **Admin** | Organization-level access: users, roles, clients, campaigns, content, approvals, analytics, reports, audit history |
+| **Manager** | Manage clients and campaigns, review content internally, send to clients, schedule, mark as published, view analytics and reports |
+| **Creator** | View assigned campaigns, create and edit content, upload media, submit for internal review. Cannot approve or publish their own content |
+| **Client** | View assigned campaigns and submitted content, approve or request changes, view analytics and reports. Cannot access other clients' data |
 
-6. Demo Scenario
-The project demonstration uses the following example workflow.
-Client:
-Lunara Cosmetics
+Choosing a login portal does not grant that role. After authentication, the real role is read from the database (`organization_members`) and the matching workspace is shown.
 
-Campaign:
-Glow Season Launch 2026
+## Tech Stack
 
-Administrator:
-Gowshii
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16, React, TypeScript, Tailwind CSS, shadcn/ui, Lucide React, Recharts |
+| Backend / API | Next.js App Router and Route Handlers |
+| Database | PostgreSQL on Supabase |
+| Auth | Supabase Auth |
+| Authorization | RBAC and PostgreSQL Row Level Security |
+| Storage | Supabase Storage |
+| Reporting | jsPDF, jspdf-autotable |
+| Hosting | Vercel |
+| Source control | Git, GitHub |
 
-Manager:
-Priya
+## Architecture
 
-Creator:
-Penny
-
-Client Reviewer:
-Lenord
-
-Example content:
-Title:
-Vitamin C Serum Reel
-
-Platform:
-Instagram
-
-Content Type:
-Reel
-
-Workflow demonstrated:
-Penny
-Draft
-   ↓
-Submit for Review
-
-Priya
-Internal Review
-   ↓
-Send to Client
-
-Lenord
-Client Review
-   ↓
-Approve
-
-Priya
-Approved
-   ↓
-Schedule
-   ↓
-Published
-
-7. Main Features
-Dashboard
-The dashboard provides a workspace-level overview including:
-- Active campaigns
-- Content status
-- Pending approvals
-- Upcoming content
-- Published content
-- Recent activity
-Client Management
-Administrators and Managers can:
-- Create clients
-- Update client information
-- Archive clients
-- Associate campaigns with clients
-- Assign client users
-Client users only receive access to their assigned organization.
-Campaign Management
-Campaigns provide the main organizational layer for marketing activity.
-Campaign data can include:
-- Campaign name
-- Client
-- Campaign status
-- Start date
-- End date
-- Team assignments
-- Content items
-- Performance information
-Content Management
-Content items can include:
-- Title
-- Campaign
-- Platform
-- Content type
-- Caption
-- Description
-- Creator
-- Publish date
-- Publish time
-- Workflow status
-Approval Workflow
-CreatorOps provides structured internal and client review.
-Supported workflow states include:
-draft
-internal_review
-client_review
-changes_requested
-approved
-scheduled
-published
-archived
-
-Workflow permissions depend on the authenticated user's role.
-Content Calendar
-The content calendar provides a visual representation of scheduled marketing content.
-It helps teams understand:
-- Publishing dates
-- Upcoming content
-- Campaign timelines
-- Content status
-- Scheduling workload
-Media Library
-Creative assets can be uploaded and linked to campaign content.
-Media storage is handled through Supabase Storage.
-This provides centralized cloud-based asset storage instead of relying on unrelated external drives.
-Notifications
-CreatorOps includes notifications for important workflow events.
-Examples include:
-- Content submitted for review
-- Content sent to client
-- Changes requested
-- Content approved
-- Content scheduled
-- Content published
-Analytics
-CreatorOps connects campaign performance information to campaign and content workflows.
-Example performance metrics include:
-- Reach
-- Engagements
-- Engagement Rate
-- Clicks
-This helps connect content planning with post-publication results.
-Reports
-CreatorOps supports campaign performance reporting.
-Reports can contain:
-- Campaign information
-- Content information
-- Performance metrics
-- Engagement statistics
-- Reporting history
-Reports can be exported as PDF documents.
-Audit Trail
-Important actions are recorded for traceability and accountability.
-The audit trail can contain events related to:
-- User actions
-- Workflow changes
-- Content activity
-- Administrative actions
-- Report generation
-- Other important system operations
-Administration
-Administrators can manage users within the CreatorOps workspace.
-Available roles include:
-admin
-manager
-creator
-client
-
-Client users can additionally be assigned to a specific client organization.
-8. Technology Stack
-Frontend
-- Next.js 16
-- React
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
-- Lucide React
-- Recharts
-Backend / API
-- Next.js App Router
-- Next.js Route Handlers
-- TypeScript
-Database
-- PostgreSQL
-- Supabase
-Authentication
-- Supabase Auth
-Authorization
-- Role-Based Access Control
-- PostgreSQL Row Level Security
-Storage
-- Supabase Storage
-Reporting
-- jsPDF
-- jspdf-autotable
-Hosting
-- Vercel
-Version Control
-- Git
-- GitHub
-9. Cloud Architecture
-CreatorOps follows a cloud-native architecture.
+```text
 ┌──────────────────────────────────────┐
 │                USERS                 │
-│                                      │
-│ Admin | Manager | Creator | Client   │
+│   Admin | Manager | Creator | Client │
 └──────────────────┬───────────────────┘
-                   │
                    │ HTTPS
                    ▼
 ┌──────────────────────────────────────┐
 │               VERCEL                 │
-│                                      │
-│ Next.js Application                  │
-│ React User Interface                 │
-│ Next.js API Route Handlers           │
+│  Next.js app · React UI · API routes │
 └──────────────────┬───────────────────┘
-                   │
         ┌──────────┼──────────┐
-        │          │          │
         ▼          ▼          ▼
-┌────────────┐ ┌────────────┐ ┌──────────────┐
-│ Supabase   │ │ PostgreSQL │ │ Supabase     │
-│ Auth       │ │ Database   │ │ Storage      │
-│            │ │            │ │              │
-│ Login      │ │ Business   │ │ Media Assets │
-│ Sessions   │ │ Data + RLS │ │              │
-└────────────┘ └────────────┘ └──────────────┘
+  ┌──────────┐ ┌──────────┐ ┌──────────┐
+  │ Supabase │ │ Postgres │ │ Supabase │
+  │   Auth   │ │ Data+RLS │ │ Storage  │
+  └──────────┘ └──────────┘ └──────────┘
+```
 
-10. Database Design
-CreatorOps uses PostgreSQL through Supabase.
-The primary database tables include:
-profiles
-organizations
-organization_members
-clients
-client_members
-campaigns
-campaign_members
-content_items
-content_versions
-media_assets
-comments
-approvals
-notifications
-content_metrics
-audit_logs
-generated_reports
+## Data Model
 
-11. Database Relationships
-A simplified relationship structure is:
-profiles
-   │
-   ▼
-organization_members
-   │
-   ▼
-organizations
-   │
-   ├──────────────► clients
-   │                   │
-   │                   ▼
-   │               campaigns
-   │                   │
-   │                   ▼
-   │              content_items
-   │                   │
-   │      ┌────────────┼────────────┐
-   │      │            │            │
-   │      ▼            ▼            ▼
-   │   approvals   comments   media_assets
-   │
-   └──────────────► audit_logs
+Primary tables: `profiles`, `organizations`, `organization_members`, `clients`, `client_members`, `campaigns`, `campaign_members`, `content_items`, `content_versions`, `media_assets`, `comments`, `approvals`, `notifications`, `content_metrics`, `audit_logs`, `generated_reports`.
 
-12. Multi-Tenant Workspace Model
-CreatorOps is organized around workspaces or organizations.
-Users are connected to an organization through:
-organization_members
+```text
+profiles → organization_members → organizations
+                                      ├── clients → campaigns → content_items
+                                      │                            ├── approvals
+                                      │                            ├── comments
+                                      │                            └── media_assets
+                                      └── audit_logs
+```
 
-The membership stores information such as:
-- Organization
-- User role
-- Membership status
-Example:
-User
-  ↓
-Organization Membership
-  ↓
-Organization
-  ↓
-Clients
-  ↓
-Campaigns
-  ↓
-Content
+**Multi-tenancy:** users belong to an organization through `organization_members` (role and membership status).
+**Client isolation:** client users are additionally linked to a single client account through `client_members`, so they only see that client's campaigns and content.
 
-This provides logical separation between workspaces.
-13. Client Isolation
-Client users require an additional relationship through:
-client_members
+## Security
 
-This connects a user with a specific client account.
-Example:
-Lenord
-   ↓
-client_members
-   ↓
-Lunara Cosmetics
-   ↓
-Glow Season Launch 2026
+- **Least privilege:** users only get the access their role needs.
+- **Client isolation:** client users cannot reach unrelated clients or campaigns.
+- **Server-side authorization:** sensitive operations are validated on the server, not just in the UI.
+- **Row Level Security:** database policies cover organization membership, campaign and content access, client access, and admin operations, so direct queries are still restricted.
+- **Secret management:** server secrets live in environment variables and are never exposed to frontend code.
 
-This prevents client users from receiving unrestricted access to other client accounts.
-14. Authentication
-CreatorOps uses Supabase Authentication.
-Authentication provides:
-- Secure password login
-- Authenticated sessions
-- User identity management
-- Session persistence
-- Server-side authentication checks
-The application provides four login portals:
-Administrator Login
-Manager Login
-Creator Login
-Client Login
+## Getting Started
 
-Selecting a portal does not automatically provide that role.
-After authentication, CreatorOps verifies the user's real role using the database.
-15. Role-Based Access Control
-CreatorOps uses four main roles:
-admin
-manager
-creator
-client
+### Prerequisites
 
-The user's role is stored in:
-organization_members
-
-Example:
-User logs in
-      ↓
-Supabase Auth verifies credentials
-      ↓
-CreatorOps retrieves organization membership
-      ↓
-Actual database role is checked
-      ↓
-Correct role-specific workspace is displayed
-
-This prevents users from gaining additional permissions by simply selecting another login portal.
-16. Row Level Security
-Supabase PostgreSQL Row Level Security is used to enforce access rules at the database layer.
-Security helper logic controls operations such as:
-- Organization membership
-- Campaign access
-- Campaign management
-- Content access
-- Content editing
-- Client access
-- Administrative access
-This provides security beyond the frontend interface.
-Even if a user attempts to directly access protected data, database policies restrict unauthorized queries.
-17. Media Storage
-Media assets are stored using Supabase Storage.
-CreatorOps uses a media storage bucket for campaign assets.
-Example media workflow:
-Creator
-   ↓
-Upload Asset
-   ↓
-Supabase Storage
-   ↓
-media_assets database record
-   ↓
-Associated Content Item
-
-This keeps creative assets linked with the content workflow.
-18. PDF Reporting
-CreatorOps supports downloadable campaign reports.
-The reporting module uses:
-jsPDF
-jspdf-autotable
-
-Generated reports can contain campaign information and analytics data.
-Report generation information is also stored for later reference.
-19. Environment Variables
-CreatorOps requires the following environment variables.
-Create a .env.local file in the project root.
-NEXT_PUBLIC_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
-
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
-
-SUPABASE_SECRET_KEY=YOUR_SUPABASE_SECRET_KEY
-
-Important:
-Do not commit .env.local to GitHub.
-
-The secret Supabase key must only be used on the server side.
-20. Local Installation
-Requirements
-Install:
-- Node.js
-- npm
+- Node.js and npm
 - Git
-Clone the repository:
+- A Supabase project
+
+### Installation
+
+```bash
 git clone https://github.com/Gowshii26/creatorops.git
-
-Open the project:
 cd creatorops
-
-Install dependencies:
 npm install
+```
 
-Create:
-.env.local
+### Environment variables
 
-Add the required Supabase environment variables.
-Then start the development server:
+Create a `.env.local` file in the project root:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+SUPABASE_SECRET_KEY=your_supabase_secret_key
+```
+
+> **Important:** never commit `.env.local`. `SUPABASE_SECRET_KEY` must only be used on the server.
+
+### Run locally
+
+```bash
 npm run dev
+```
 
-Open:
-http://localhost:3000
+Open http://localhost:3000.
 
-21. Production Build
-To test the production build locally:
+### Production build
+
+```bash
 npm run build
+```
 
-If the build succeeds, the application is ready for deployment.
-22. Vercel Deployment
-CreatorOps is deployed using Vercel.
-Deployment process:
-Local Development
-      ↓
-Git Commit
-      ↓
-GitHub Repository
-      ↓
-Vercel Git Integration
-      ↓
-Production Build
-      ↓
-Vercel Deployment
+## Deployment
 
-The required environment variables are configured in Vercel:
-NEXT_PUBLIC_SUPABASE_URL
+CreatorOps is deployed on Vercel with automatic deploys from GitHub.
 
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+```text
+Local dev → Git commit → GitHub → Vercel Git integration → Build → Deploy
+```
 
-SUPABASE_SECRET_KEY
+1. Import the repository into Vercel.
+2. Add the three environment variables above in the Vercel project settings.
+3. In Supabase **Authentication → URL Configuration**, set:
+   - Site URL: `https://creatorops-gowshika-m-s-projects.vercel.app`
+   - Redirect URLs: `http://localhost:3000/auth/callback` and `https://creatorops-gowshika-m-s-projects.vercel.app/auth/callback`
+4. Push to `main` to trigger a new production deployment.
 
-Production application:
-https://creatorops-gowshika-m-s-projects.vercel.app
-23. Supabase Authentication URLs
-Local callback:
-http://localhost:3000/auth/callback
+## Project Structure
 
-Production callback:
-https://creatorops-gowshika-m-s-projects.vercel.app/auth/callback
-
-Production Site URL:
-https://creatorops-gowshika-m-s-projects.vercel.app
-
-24. Project Structure
-A simplified project structure is shown below.
+```text
 creatorops/
-│
 ├── app/
-│   ├── api/
-│   │   ├── admin/
-│   │   ├── analytics/
-│   │   ├── campaigns/
-│   │   ├── clients/
-│   │   ├── content/
-│   │   ├── dashboard/
-│   │   ├── media/
-│   │   ├── notifications/
-│   │   └── reports/
-│   │
-│   ├── admin/
-│   ├── analytics/
-│   ├── approvals/
-│   ├── audit/
-│   ├── calendar/
-│   ├── campaigns/
-│   ├── clients/
-│   ├── content/
-│   ├── login/
-│   ├── media/
-│   ├── notifications/
-│   ├── onboarding/
-│   ├── reports/
-│   └── settings/
-│
-├── components/
-│   ├── app-shell.tsx
-│   ├── approval-queue.tsx
-│   ├── campaign-management.tsx
-│   ├── client-management.tsx
-│   ├── content-management.tsx
-│   ├── content-workflow-actions.tsx
-│   └── ...
-│
+│   ├── api/            # admin, analytics, campaigns, clients, content,
+│   │                   # dashboard, media, notifications, reports
+│   ├── admin/ analytics/ approvals/ audit/ calendar/ campaigns/
+│   ├── clients/ content/ login/ media/ notifications/
+│   └── onboarding/ reports/ settings/
+├── components/         # app-shell, approval-queue, campaign-management,
+│                       # client-management, content-management, ...
 ├── lib/
 │   ├── auth/
 │   └── supabase/
-│
 ├── public/
-│
-├── .gitignore
 ├── package.json
 └── README.md
+```
 
-25. Functional Requirements
-User Management
-- User authentication
-- Role-based authorization
-- Profile management
-- Organization membership
-- Client-specific user assignment
-Client Management
-- Create clients
-- Edit clients
-- Archive clients
-- Associate users with clients
-Campaign Management
-- Create campaigns
-- Edit campaigns
-- Track campaign status
-- Associate campaigns with clients
-- Assign campaign members
-Content Management
-- Create content
-- Edit content
-- Upload media
-- Assign creators
-- Set publishing information
-- Track workflow status
-Approval Management
-- Submit content for internal review
-- Send content to client
-- Request changes
-- Approve content
-- Record approval decisions
-Publishing
-- Schedule approved content
-- Mark content as published
-- Display scheduled content in calendar
-Analytics
-- Campaign-level metrics
-- Engagement data
-- Click data
-- Reach information
-Reporting
-- Generate campaign reports
-- Export PDF reports
-- Maintain report history
-Audit
-- Store important user actions
-- Store workflow transitions
-- Provide traceable system history
-26. Non-Functional Requirements
-Security
-CreatorOps uses:
-- Secure authentication
-- Role-Based Access Control
-- Row Level Security
-- Server-side authorization
-- Private environment variables
-Scalability
-The cloud architecture can support additional:
-- Organizations
-- Clients
-- Campaigns
-- Users
-- Content
-- Media assets
-Reliability
-The structured database and workflow help reduce accidental loss of campaign information.
-Maintainability
-The application is divided into modular components, API routes, and reusable services.
-Accessibility
-The interface uses clear navigation, role-specific workspaces, and responsive layouts.
-Performance
-Vercel provides cloud hosting and optimized Next.js delivery.
-27. Security Principles
-CreatorOps follows several important security principles.
-Least Privilege
-Users only receive access required for their role.
-Client Isolation
-Clients only receive access to their assigned client data.
-Server-Side Authorization
-Sensitive administrative operations are validated on the server.
-Database-Level Protection
-PostgreSQL Row Level Security provides another authorization layer.
-Secret Management
-Server secrets are stored using environment variables and are not exposed in frontend code.
-28. Demo Flow
-A complete CreatorOps demonstration can follow this sequence:
-1. Administrator Login
-2. Show user roles
-3. Show client
-4. Create campaign
-5. Logout
+## Demo Walkthrough
 
-6. Creator Login
-7. Create content
-8. Upload media
-9. Submit for internal review
-10. Logout
+The demo uses client **Lunara Cosmetics**, campaign **Glow Season Launch 2026**, and a **Vitamin C Serum Reel** for Instagram.
 
-11. Manager Login
-12. Review content
-13. Send to client
-14. Logout
+| Step | Actor | Action |
+|---|---|---|
+| 1 | Admin (Gowshii) | Review users, clients; create the campaign |
+| 2 | Creator (Penny) | Create content, upload media, submit for internal review |
+| 3 | Manager (Priya) | Review internally, send to client |
+| 4 | Client (Lenord) | Review and approve |
+| 5 | Manager (Priya) | Schedule, then mark as published |
+| 6 | Any permitted role | Explore calendar, dashboard, analytics, generate a PDF report, view the audit trail |
 
-15. Client Login
-16. Review content
-17. Approve content
-18. Logout
+## Testing
 
-19. Manager Login
-20. Schedule content
-21. Mark as published
+Verified locally and after production deployment:
 
-22. Show Calendar
-23. Show Dashboard
-24. Show Analytics
-25. Generate PDF Report
-26. Show Audit Trail
-
-29. Testing
-CreatorOps was tested locally and after production deployment.
-Areas tested include:
-- Authentication
-- Role-specific login
-- Administrator access
-- Manager access
-- Creator access
-- Client access
-- Client isolation
-- Campaign creation
-- Content creation
-- Content updates
+- Authentication and role-specific login
+- Admin, manager, creator, and client access rules, including client isolation
+- Campaign and content creation and updates
 - Media uploads
-- Approval workflow
-- Scheduling
-- Publishing
-- Analytics
-- Reports
-- PDF generation
-- Audit history
-- Logout
-- Production deployment
-A production build was also verified using:
-npm run build
+- Approval workflow, scheduling, and publishing
+- Analytics, PDF report generation, audit history
+- Logout and production build (`npm run build`)
 
-30. Deployment Validation
-After deployment, the following production checks were performed:
-Administrator login works
-Manager login works
-Creator login works
-Client login works
+## Roadmap
 
-Correct role is displayed
-Dashboard loads
-Campaigns load
-Clients load
-Content loads
-Approval workflow loads
-Supabase database connection works
-Supabase authentication works
-Role restrictions remain active
-Logout works
-
-31. Key Benefits
-CreatorOps provides several benefits to marketing teams.
-Centralized Workflow
-Planning, content, approval, publishing, and analytics exist in one system.
-Improved Accountability
-Every important workflow transition can be tracked.
-Faster Approvals
-Managers and clients use structured approval actions instead of fragmented messages.
-Client Visibility
-Clients can directly review assigned campaign content.
-Improved Security
-RBAC and Row Level Security protect client and organization information.
-Better Reporting
-Campaign performance can be exported into stakeholder-ready reports.
-Cloud Accessibility
-The platform can be accessed through a browser without installing desktop software.
-32. Future Enhancements
-Future versions of CreatorOps could include:
 - Direct social media publishing APIs
-- AI-assisted caption generation
-- AI content recommendations
-- Automatic campaign performance ingestion
-- Advanced analytics dashboards
-- Real-time collaboration
-- Mention notifications
-- Email notifications
-- Content version comparison
-- File annotations
-- Automatic thumbnail generation
-- Advanced search
-- Mobile application
-- Organization subscription plans
-- Billing integration
-- Additional workspace roles
-- Custom role permissions
-- Webhook integrations
-- External marketing platform integrations
-33. Development Workflow
-The project uses Git and GitHub for source control.
-Typical development workflow:
-git add .
-git commit -m "Describe changes"
-git push
+- AI-assisted caption generation and content recommendations
+- Automatic performance data ingestion and advanced analytics dashboards
+- Real-time collaboration, mentions, and email notifications
+- Content version comparison and file annotations
+- Automatic thumbnail generation and advanced search
+- Subscription plans and billing
+- Custom roles and permissions
+- Webhooks and external marketing platform integrations
+- Mobile app
 
-Vercel automatically detects new commits on the main branch and triggers a new deployment.
-34. Cloud Services Used
-CreatorOps demonstrates the use of multiple cloud services.
-Vercel
-Used for:
-- Next.js hosting
-- Application deployment
-- Server-side execution
-- Environment variable management
-- Production domain
-Supabase
-Used for:
-- PostgreSQL database
-- Authentication
-- Row Level Security
-- Storage
-- User sessions
-- Backend data services
-GitHub
-Used for:
-- Source control
-- Repository hosting
-- Version history
-- Vercel deployment integration
-35. SaaS Characteristics
-CreatorOps demonstrates several Software as a Service characteristics:
-- Browser-based access
-- Cloud-hosted infrastructure
-- Centralized data
-- Role-based access
-- Multi-user collaboration
-- Organization-based workspaces
-- Scalable cloud services
-- No local installation required for end users
-- Continuous deployment through GitHub and Vercel
-36. Project Outcome
-CreatorOps successfully demonstrates how a fragmented marketing content workflow can be transformed into a centralized cloud-based SaaS application.
-The project combines:
-Client Management
-+
-Campaign Management
-+
-Content Creation
-+
-Media Management
-+
-Approval Workflows
-+
-Scheduling
-+
-Publishing Status
-+
-Analytics
-+
-Reporting
-+
-Auditability
+---
 
-into one integrated platform.
-The final application demonstrates secure authentication, role-based access, cloud data storage, workflow automation, client-specific visibility, analytics, reporting, and production cloud deployment.
-
-Plan → Create → Review → Approve → Publish → Analyze
-A cloud-based Content Planning and Approval SaaS platform for modern marketing teams.
+**CreatorOps** · A cloud-based content planning and approval platform for modern marketing teams.
