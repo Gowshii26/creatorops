@@ -1,21 +1,63 @@
-# Next.js template
+# CreatorOps
 
-This is a Next.js template with shadcn/ui.
+## Content Planning & Approval SaaS
 
-## Adding components
+CreatorOps is a cloud-based Marketing Content Operations platform designed to centralize the complete content lifecycle — from client and campaign setup to content creation, approval, scheduling, publishing, analytics, and reporting.
 
-To add components to your app, run the following command:
+The platform replaces fragmented workflows involving spreadsheets, email, messaging applications, file drives, and separate analytics tools with a single role-based workspace.
 
-```bash
-npx shadcn@latest add button
-```
+---
 
-This will place the ui components in the `components` directory.
+## Live Application
 
-## Using components
+**Production Deployment**
 
-To use the components in your app, import them as follows:
+https://creatorops-gowshika-m-s-projects.vercel.app
 
-```tsx
-import { Button } from "@/components/ui/button";
-```
+**GitHub Repository**
+
+https://github.com/Gowshii26/creatorops
+
+---
+
+# 1. Project Overview
+
+Marketing teams often manage content using multiple disconnected tools:
+
+- Spreadsheets for content calendars
+- Google Drive or similar services for media assets
+- Email and messaging applications for feedback
+- Separate social platforms for publishing
+- Separate dashboards for campaign analytics
+
+This creates problems such as:
+
+- Scattered information
+- Manual status tracking
+- Unstructured feedback
+- Approval bottlenecks
+- Limited client visibility
+- Poor accountability
+- No unified audit history
+- Analytics disconnected from the original content workflow
+
+CreatorOps solves this problem by providing one centralized SaaS platform for managing the complete marketing content lifecycle.
+
+---
+
+# 2. Core Workflow
+
+CreatorOps implements a structured content approval lifecycle.
+
+```text
+Draft
+  ↓
+Internal Review
+  ↓
+Client Review
+  ↓
+Approved
+  ↓
+Scheduled
+  ↓
+Published
