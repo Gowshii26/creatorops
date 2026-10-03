@@ -25,23 +25,29 @@ export async function PATCH(
   }
 ) {
   try {
-    const workspace =
+    const workspaceResult =
       await getWorkspaceContext();
 
-    if (workspace.error) {
+    if (!workspaceResult.data) {
       return NextResponse.json(
         {
-          error: workspace.error,
+          error:
+            workspaceResult.error ||
+            "Workspace access denied.",
         },
         {
-          status: workspace.status,
+          status:
+            workspaceResult.status || 401,
         }
       );
     }
 
+    const workspace =
+      workspaceResult.data;
+
     if (
       !canManageClients(
-        workspace.data.role
+        workspace.role
       )
     ) {
       return NextResponse.json(
@@ -129,7 +135,7 @@ export async function PATCH(
         .eq("id", id)
         .eq(
           "organization_id",
-          workspace.data.organizationId
+          workspace.organizationId
         )
         .select(
           `
@@ -192,23 +198,29 @@ export async function DELETE(
   }
 ) {
   try {
-    const workspace =
+    const workspaceResult =
       await getWorkspaceContext();
 
-    if (workspace.error) {
+    if (!workspaceResult.data) {
       return NextResponse.json(
         {
-          error: workspace.error,
+          error:
+            workspaceResult.error ||
+            "Workspace access denied.",
         },
         {
-          status: workspace.status,
+          status:
+            workspaceResult.status || 401,
         }
       );
     }
 
+    const workspace =
+      workspaceResult.data;
+
     if (
       !canManageClients(
-        workspace.data.role
+        workspace.role
       )
     ) {
       return NextResponse.json(
@@ -240,7 +252,7 @@ export async function DELETE(
         .eq("id", id)
         .eq(
           "organization_id",
-          workspace.data.organizationId
+          workspace.organizationId
         )
         .select(
           `
