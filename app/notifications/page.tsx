@@ -1,0 +1,55 @@
+import {
+  Bell,
+} from "lucide-react";
+
+import {
+  redirect,
+} from "next/navigation";
+
+import NotificationCenter from "@/components/notification-center";
+import { getWorkspaceContext } from "@/lib/auth/workspace";
+
+export default async function NotificationsPage() {
+  const workspace =
+    await getWorkspaceContext();
+
+  if (!workspace.data) {
+    if (
+      workspace.status ===
+      401
+    ) {
+      redirect("/login");
+    }
+
+    redirect("/onboarding");
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl p-6 lg:p-8">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black text-white">
+          <Bell
+            size={21}
+          />
+        </div>
+
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Notifications
+          </h1>
+
+          <p className="mt-2 max-w-2xl text-slate-500">
+            Follow approval requests,
+            requested changes,
+            scheduling events and
+            publishing updates.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <NotificationCenter />
+      </div>
+    </div>
+  );
+}
