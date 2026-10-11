@@ -9,13 +9,17 @@ import {
 } from "react";
 
 import {
+  Camera,
+  ExternalLink,
   File,
   FileText,
   ImageIcon,
+  Link2,
   Loader2,
   RefreshCw,
   Search,
   Trash2,
+  Unlink,
   Upload,
   Video,
 } from "lucide-react";
@@ -60,6 +64,87 @@ type ContentOption = {
   status: string;
 };
 
+type ContentApiItem = {
+  id: string;
+  title: string;
+  campaign_name: string;
+  client_name: string;
+  status: string;
+};
+
+type MediaApiResponse = {
+  media?: MediaAsset[];
+  error?: string;
+};
+
+type ContentApiResponse = {
+  content?: ContentApiItem[];
+  error?: string;
+};
+
+type ApiMessageResponse = {
+  error?: string;
+};
+
+type InstagramAccount = {
+  id: string | null;
+  username: string | null;
+  name: string | null;
+  accountType: string | null;
+  mediaCount: number | null;
+};
+
+type InstagramMediaItem = {
+  id: string;
+  caption?: string;
+  media_type?: string;
+  media_url?: string;
+  permalink?: string;
+  thumbnail_url?: string;
+  timestamp?: string;
+};
+
+type InstagramAccountResponse = {
+  connected?: boolean;
+  account?: InstagramAccount;
+  error?: string;
+  code?: number;
+};
+
+type InstagramMediaResponse = {
+  connected?: boolean;
+  count?: number;
+  media?: InstagramMediaItem[];
+  error?: string;
+  code?: number;
+};
+
+type SocialMediaLink = {
+  id: string;
+  organization_id: string;
+  content_id: string;
+  platform: string;
+  external_media_id: string;
+  permalink: string | null;
+  media_type: string | null;
+  caption: string | null;
+  published_at: string | null;
+  linked_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type InstagramLinksResponse = {
+  links?: SocialMediaLink[];
+  error?: string;
+};
+
+type InstagramLinkMutationResponse = {
+  success?: boolean;
+  link?: SocialMediaLink;
+  error?: string;
+};
+
 function formatBytes(
   bytes: number | null
 ) {
@@ -70,9 +155,7 @@ function formatBytes(
     return "0 B";
   }
 
-  if (
-    bytes < 1024
-  ) {
+  if (bytes < 1024) {
     return `${bytes} B`;
   }
 
@@ -146,6 +229,42 @@ function typeLabel(
   return "File";
 }
 
+function instagramTypeLabel(
+  mediaType?: string
+) {
+  if (!mediaType) {
+    return "Media";
+  }
+
+  if (
+    mediaType ===
+    "CAROUSEL_ALBUM"
+  ) {
+    return "Carousel";
+  }
+
+  return mediaType
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(
+      /\b\w/g,
+      (character) =>
+        character.toUpperCase()
+    );
+}
+
+function statusLabel(
+  value: string
+) {
+  return value
+    .replaceAll("_", " ")
+    .replace(
+      /\b\w/g,
+      (character) =>
+        character.toUpperCase()
+    );
+}
+
 function AssetIcon({
   mimeType,
 }: {
@@ -202,17 +321,13 @@ export default function MediaLibrary({
     media,
     setMedia,
   ] =
-    useState<
-      MediaAsset[]
-    >([]);
+    useState<MediaAsset[]>([]);
 
   const [
     content,
     setContent,
   ] =
-    useState<
-      ContentOption[]
-    >([]);
+    useState<ContentOption[]>([]);
 
   const [
     loading,
@@ -264,9 +379,81 @@ export default function MediaLibrary({
   ] =
     useState("");
 
+  /*
+   * -----------------------------------------
+   * Instagram state
+   * -----------------------------------------
+   */
+
+  const [
+    instagramAccount,
+    setInstagramAccount,
+  ] =
+    useState<InstagramAccount | null>(
+      null
+    );
+
+  const [
+    instagramMedia,
+    setInstagramMedia,
+  ] =
+    useState<
+      InstagramMediaItem[]
+    >([]);
+
+  const [
+    instagramLinks,
+    setInstagramLinks,
+  ] =
+    useState<
+      SocialMediaLink[]
+    >([]);
+
+  const [
+    instagramLoading,
+    setInstagramLoading,
+  ] =
+    useState(false);
+
+  const [
+    instagramError,
+    setInstagramError,
+  ] =
+    useState("");
+
+  const [
+    instagramSuccess,
+    setInstagramSuccess,
+  ] =
+    useState("");
+
+  const [
+    selectedInstagramContent,
+    setSelectedInstagramContent,
+  ] =
+    useState<
+      Record<string, string>
+    >({});
+
+  const [
+    instagramActionId,
+    setInstagramActionId,
+  ] =
+    useState<string | null>(
+      null
+    );
+
   const canUpload =
-    currentRole !==
-    "client";
+    currentRole !== "client";
+
+  const canUseInstagram =
+    currentRole !== "client";
+
+  /*
+   * -----------------------------------------
+   * CreatorOps media
+   * -----------------------------------------
+   */
 
   const loadData =
     useCallback(
@@ -301,10 +488,13 @@ export default function MediaLibrary({
             mediaData,
             contentData,
           ] =
-            await Promise.all([
+            (await Promise.all([
               mediaResponse.json(),
               contentResponse.json(),
-            ]);
+            ])) as [
+              MediaApiResponse,
+              ContentApiResponse,
+            ];
 
           if (
             !mediaResponse.ok
@@ -325,8 +515,7 @@ export default function MediaLibrary({
           }
 
           setMedia(
-            mediaData.media ??
-              []
+            mediaData.media ?? []
           );
 
           setContent(
@@ -335,13 +524,7 @@ export default function MediaLibrary({
               []
             ).map(
               (
-                item: {
-                  id: string;
-                  title: string;
-                  campaign_name: string;
-                  client_name: string;
-                  status: string;
-                }
+                item
               ) => ({
                 id:
                   item.id,
@@ -373,9 +556,190 @@ export default function MediaLibrary({
       []
     );
 
+  /*
+   * -----------------------------------------
+   * Instagram integration
+   * -----------------------------------------
+   */
+
+  const loadInstagram =
+    useCallback(
+      async () => {
+        if (
+          !canUseInstagram
+        ) {
+          return;
+        }
+
+        setInstagramLoading(
+          true
+        );
+
+        setInstagramError("");
+
+        try {
+          const [
+            accountResponse,
+            mediaResponse,
+            linksResponse,
+          ] =
+            await Promise.all([
+              fetch(
+                "/api/integrations/instagram/test",
+                {
+                  cache:
+                    "no-store",
+                }
+              ),
+
+              fetch(
+                "/api/integrations/instagram/media",
+                {
+                  cache:
+                    "no-store",
+                }
+              ),
+
+              fetch(
+                "/api/integrations/instagram/links",
+                {
+                  cache:
+                    "no-store",
+                }
+              ),
+            ]);
+
+          const [
+            accountData,
+            mediaData,
+            linksData,
+          ] =
+            (await Promise.all([
+              accountResponse.json(),
+              mediaResponse.json(),
+              linksResponse.json(),
+            ])) as [
+              InstagramAccountResponse,
+              InstagramMediaResponse,
+              InstagramLinksResponse,
+            ];
+
+          if (
+            !accountResponse.ok
+          ) {
+            throw new Error(
+              accountData.error ||
+                "Unable to verify Instagram account."
+            );
+          }
+
+          if (
+            !mediaResponse.ok
+          ) {
+            throw new Error(
+              mediaData.error ||
+                "Unable to retrieve Instagram media."
+            );
+          }
+
+          if (
+            !linksResponse.ok
+          ) {
+            throw new Error(
+              linksData.error ||
+                "Unable to retrieve Instagram content links."
+            );
+          }
+
+          if (
+            !accountData.connected ||
+            !accountData.account
+          ) {
+            throw new Error(
+              "Instagram account is not connected."
+            );
+          }
+
+          setInstagramAccount(
+            accountData.account
+          );
+
+          setInstagramMedia(
+            mediaData.media ?? []
+          );
+
+          setInstagramLinks(
+            linksData.links ?? []
+          );
+        } catch (err) {
+          setInstagramError(
+            err instanceof Error
+              ? err.message
+              : "Unable to load Instagram."
+          );
+        } finally {
+          setInstagramLoading(
+            false
+          );
+        }
+      },
+      [canUseInstagram]
+    );
+
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (
+      canUseInstagram
+    ) {
+      void loadInstagram();
+    }
+  }, [
+    canUseInstagram,
+    loadInstagram,
+  ]);
+
+  /*
+   * -----------------------------------------
+   * Lookup maps
+   * -----------------------------------------
+   */
+
+  const instagramLinkMap =
+    useMemo(
+      () =>
+        new Map(
+          instagramLinks.map(
+            (link) => [
+              link.external_media_id,
+              link,
+            ]
+          )
+        ),
+      [instagramLinks]
+    );
+
+  const contentMap =
+    useMemo(
+      () =>
+        new Map(
+          content.map(
+            (item) => [
+              item.id,
+              item,
+            ]
+          )
+        ),
+      [content]
+    );
+
+  /*
+   * -----------------------------------------
+   * Filtering
+   * -----------------------------------------
+   */
 
   const uploadableContent =
     useMemo(
@@ -441,6 +805,198 @@ export default function MediaLibrary({
       typeFilter,
     ]);
 
+  /*
+   * -----------------------------------------
+   * Instagram link action
+   * -----------------------------------------
+   */
+
+  async function linkInstagramMedia(
+    item: InstagramMediaItem
+  ) {
+    const contentId =
+      selectedInstagramContent[
+        item.id
+      ];
+
+    if (!contentId) {
+      setInstagramError(
+        "Select a CreatorOps content item first."
+      );
+
+      return;
+    }
+
+    setInstagramActionId(
+      item.id
+    );
+
+    setInstagramError("");
+    setInstagramSuccess("");
+
+    try {
+      const response =
+        await fetch(
+          "/api/integrations/instagram/links",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                contentId,
+
+                externalMediaId:
+                  item.id,
+
+                permalink:
+                  item.permalink ??
+                  null,
+
+                mediaType:
+                  item.media_type ??
+                  null,
+
+                caption:
+                  item.caption ??
+                  null,
+
+                publishedAt:
+                  item.timestamp ??
+                  null,
+              }),
+          }
+        );
+
+      const data =
+        (await response.json()) as
+          InstagramLinkMutationResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Unable to link Instagram media."
+        );
+      }
+
+      setInstagramSuccess(
+        "Instagram post linked to CreatorOps content."
+      );
+
+      setSelectedInstagramContent(
+        (previous) => {
+          const next = {
+            ...previous,
+          };
+
+          delete next[
+            item.id
+          ];
+
+          return next;
+        }
+      );
+
+      await loadInstagram();
+    } catch (err) {
+      setInstagramError(
+        err instanceof Error
+          ? err.message
+          : "Unable to link Instagram media."
+      );
+    } finally {
+      setInstagramActionId(
+        null
+      );
+    }
+  }
+
+  /*
+   * -----------------------------------------
+   * Instagram unlink action
+   * -----------------------------------------
+   */
+
+  async function unlinkInstagramMedia(
+    item: InstagramMediaItem
+  ) {
+    const confirmed =
+      window.confirm(
+        "Remove this Instagram post from its CreatorOps content item?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setInstagramActionId(
+      item.id
+    );
+
+    setInstagramError("");
+    setInstagramSuccess("");
+
+    try {
+      const response =
+        await fetch(
+          "/api/integrations/instagram/links",
+          {
+            method:
+              "DELETE",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                externalMediaId:
+                  item.id,
+              }),
+          }
+        );
+
+      const data =
+        (await response.json()) as
+          InstagramLinkMutationResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Unable to unlink Instagram media."
+        );
+      }
+
+      setInstagramSuccess(
+        "Instagram post unlinked from CreatorOps content."
+      );
+
+      await loadInstagram();
+    } catch (err) {
+      setInstagramError(
+        err instanceof Error
+          ? err.message
+          : "Unable to unlink Instagram media."
+      );
+    } finally {
+      setInstagramActionId(
+        null
+      );
+    }
+  }
+
+  /*
+   * -----------------------------------------
+   * Upload
+   * -----------------------------------------
+   */
+
   async function uploadMedia(
     event:
       FormEvent<HTMLFormElement>
@@ -497,7 +1053,8 @@ export default function MediaLibrary({
         );
 
       const data =
-        await response.json();
+        (await response.json()) as
+          ApiMessageResponse;
 
       if (!response.ok) {
         throw new Error(
@@ -526,8 +1083,7 @@ export default function MediaLibrary({
           | null;
 
       if (input) {
-        input.value =
-          "";
+        input.value = "";
       }
 
       await loadData();
@@ -541,6 +1097,12 @@ export default function MediaLibrary({
       setUploading(false);
     }
   }
+
+  /*
+   * -----------------------------------------
+   * Delete CreatorOps media
+   * -----------------------------------------
+   */
 
   async function deleteMedia(
     asset: MediaAsset
@@ -568,7 +1130,8 @@ export default function MediaLibrary({
         );
 
       const data =
-        await response.json();
+        (await response.json()) as
+          ApiMessageResponse;
 
       if (!response.ok) {
         throw new Error(
@@ -602,9 +1165,7 @@ export default function MediaLibrary({
           </p>
 
           <p className="mt-2 text-3xl font-bold">
-            {
-              media.length
-            }
+            {media.length}
           </p>
         </div>
 
@@ -643,6 +1204,497 @@ export default function MediaLibrary({
         </div>
       </div>
 
+      {/* INSTAGRAM */}
+
+      {canUseInstagram && (
+        <section className="mt-6 overflow-hidden rounded-2xl border bg-white shadow-sm">
+          <div className="flex flex-col gap-4 border-b p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black text-white">
+                <Camera
+                  size={20}
+                />
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-lg font-semibold">
+                    Instagram Integration
+                  </h2>
+
+                  {instagramAccount && (
+                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
+                      Connected
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Real Instagram media connected
+                  to the CreatorOps content
+                  workflow.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                instagramLoading
+              }
+              onClick={() =>
+                void loadInstagram()
+              }
+            >
+              {instagramLoading ? (
+                <Loader2
+                  size={14}
+                  className="mr-2 animate-spin"
+                />
+              ) : (
+                <RefreshCw
+                  size={14}
+                  className="mr-2"
+                />
+              )}
+
+              {instagramLoading
+                ? "Refreshing..."
+                : "Refresh Instagram"}
+            </Button>
+          </div>
+
+          {instagramError && (
+            <div className="mx-6 mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {instagramError}
+            </div>
+          )}
+
+          {instagramSuccess && (
+            <div className="mx-6 mt-6 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+              {instagramSuccess}
+            </div>
+          )}
+
+          {instagramLoading &&
+          !instagramAccount ? (
+            <div className="flex min-h-40 items-center justify-center gap-2 p-6 text-sm text-slate-500">
+              <Loader2
+                size={18}
+                className="animate-spin"
+              />
+
+              Checking Instagram
+              connection...
+            </div>
+          ) : instagramAccount ? (
+            <div className="p-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Account
+                  </p>
+
+                  <p className="mt-2 font-semibold">
+                    @
+                    {
+                      instagramAccount.username ??
+                      "Unknown"
+                    }
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Account Type
+                  </p>
+
+                  <p className="mt-2 font-semibold">
+                    {
+                      instagramAccount.accountType ??
+                      "Professional"
+                    }
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Instagram Media
+                  </p>
+
+                  <p className="mt-2 font-semibold">
+                    {
+                      instagramAccount.mediaCount ??
+                      instagramMedia.length
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 border-t pt-6">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h3 className="font-semibold">
+                      Real Instagram Media
+                    </h3>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Link a live Instagram
+                      post or Reel to the
+                      corresponding CreatorOps
+                      content item.
+                    </p>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    {
+                      instagramMedia.length
+                    }{" "}
+                    loaded
+                  </p>
+                </div>
+
+                {instagramMedia.length ===
+                0 ? (
+                  <div className="mt-5 rounded-xl border border-dashed p-10 text-center">
+                    <Camera
+                      size={28}
+                      className="mx-auto text-slate-400"
+                    />
+
+                    <h4 className="mt-4 font-semibold">
+                      No Instagram media yet
+                    </h4>
+
+                    <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+                      Publish a post or Reel on
+                      the connected account,
+                      then click Refresh
+                      Instagram.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                    {instagramMedia.map(
+                      (item) => {
+                        const previewUrl =
+                          item.thumbnail_url ||
+                          item.media_url ||
+                          null;
+
+                        const isVideo =
+                          item.media_type ===
+                          "VIDEO";
+
+                        const existingLink =
+                          instagramLinkMap.get(
+                            item.id
+                          );
+
+                        const linkedContent =
+                          existingLink
+                            ? contentMap.get(
+                                existingLink.content_id
+                              )
+                            : undefined;
+
+                        const isWorking =
+                          instagramActionId ===
+                          item.id;
+
+                        return (
+                          <article
+                            key={
+                              item.id
+                            }
+                            className="overflow-hidden rounded-2xl border bg-white"
+                          >
+                            <div className="relative flex h-64 items-center justify-center bg-slate-100">
+                              {previewUrl &&
+                              (!isVideo ||
+                                item.thumbnail_url) ? (
+                                <img
+                                  src={
+                                    previewUrl
+                                  }
+                                  alt={
+                                    item.caption ||
+                                    "Instagram media"
+                                  }
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : previewUrl &&
+                                isVideo ? (
+                                <video
+                                  src={
+                                    previewUrl
+                                  }
+                                  controls
+                                  className="h-full w-full object-contain"
+                                />
+                              ) : (
+                                <Camera
+                                  size={30}
+                                  className="text-slate-400"
+                                />
+                              )}
+
+                              <span className="absolute left-3 top-3 rounded-full bg-black/75 px-2.5 py-1 text-xs font-medium text-white">
+                                {instagramTypeLabel(
+                                  item.media_type
+                                )}
+                              </span>
+
+                              {existingLink && (
+                                <span className="absolute right-3 top-3 rounded-full bg-green-600 px-2.5 py-1 text-xs font-medium text-white">
+                                  Linked
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="p-4">
+                              <p className="max-h-20 overflow-hidden break-words text-sm text-slate-700">
+                                {item.caption ||
+                                  "No caption"}
+                              </p>
+
+                              {item.timestamp && (
+                                <p className="mt-3 text-xs text-slate-400">
+                                  {formatDate(
+                                    item.timestamp
+                                  )}
+                                </p>
+                              )}
+
+                              {existingLink ? (
+                                <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-700">
+                                      <Link2
+                                        size={16}
+                                      />
+                                    </div>
+
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-medium uppercase tracking-wide text-green-700">
+                                        Linked to CreatorOps
+                                      </p>
+
+                                      <p className="mt-1 font-semibold text-slate-900">
+                                        {linkedContent
+                                          ?.title ||
+                                          "CreatorOps content"}
+                                      </p>
+
+                                      {linkedContent && (
+                                        <>
+                                          <p className="mt-1 text-xs text-slate-600">
+                                            {
+                                              linkedContent.client_name
+                                            }{" "}
+                                            —{" "}
+                                            {
+                                              linkedContent.campaign_name
+                                            }
+                                          </p>
+
+                                          <span className="mt-2 inline-flex rounded-full bg-white px-2 py-1 text-xs font-medium text-slate-600">
+                                            {statusLabel(
+                                              linkedContent.status
+                                            )}
+                                          </span>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="mt-4 w-full"
+                                    disabled={
+                                      isWorking
+                                    }
+                                    onClick={() =>
+                                      void unlinkInstagramMedia(
+                                        item
+                                      )
+                                    }
+                                  >
+                                    {isWorking ? (
+                                      <Loader2
+                                        size={14}
+                                        className="mr-2 animate-spin"
+                                      />
+                                    ) : (
+                                      <Unlink
+                                        size={14}
+                                        className="mr-2"
+                                      />
+                                    )}
+
+                                    {isWorking
+                                      ? "Unlinking..."
+                                      : "Unlink from Content"}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="mt-4 rounded-xl border bg-slate-50 p-4">
+                                  <div className="flex items-center gap-2">
+                                    <Link2
+                                      size={15}
+                                      className="text-slate-500"
+                                    />
+
+                                    <p className="text-sm font-semibold">
+                                      Link to Content
+                                    </p>
+                                  </div>
+
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Associate this live
+                                    Instagram post with
+                                    its CreatorOps content
+                                    record.
+                                  </p>
+
+                                  <select
+                                    value={
+                                      selectedInstagramContent[
+                                        item.id
+                                      ] || ""
+                                    }
+                                    onChange={(
+                                      event
+                                    ) =>
+                                      setSelectedInstagramContent(
+                                        (
+                                          previous
+                                        ) => ({
+                                          ...previous,
+
+                                          [item.id]:
+                                            event
+                                              .target
+                                              .value,
+                                        })
+                                      )
+                                    }
+                                    className="mt-3 h-10 w-full rounded-md border border-input bg-white px-3 text-sm"
+                                  >
+                                    <option value="">
+                                      Select CreatorOps
+                                      content
+                                    </option>
+
+                                    {content.map(
+                                      (
+                                        option
+                                      ) => (
+                                        <option
+                                          key={
+                                            option.id
+                                          }
+                                          value={
+                                            option.id
+                                          }
+                                        >
+                                          {
+                                            option.client_name
+                                          }{" "}
+                                          —{" "}
+                                          {
+                                            option.campaign_name
+                                          }{" "}
+                                          —{" "}
+                                          {
+                                            option.title
+                                          }
+                                        </option>
+                                      )
+                                    )}
+                                  </select>
+
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    className="mt-3 w-full"
+                                    disabled={
+                                      isWorking ||
+                                      !selectedInstagramContent[
+                                        item.id
+                                      ]
+                                    }
+                                    onClick={() =>
+                                      void linkInstagramMedia(
+                                        item
+                                      )
+                                    }
+                                  >
+                                    {isWorking ? (
+                                      <Loader2
+                                        size={14}
+                                        className="mr-2 animate-spin"
+                                      />
+                                    ) : (
+                                      <Link2
+                                        size={14}
+                                        className="mr-2"
+                                      />
+                                    )}
+
+                                    {isWorking
+                                      ? "Linking..."
+                                      : "Link to Content"}
+                                  </Button>
+                                </div>
+                              )}
+
+                              {item.permalink && (
+                                <a
+                                  href={
+                                    item.permalink
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-4 inline-flex h-9 items-center justify-center rounded-md border bg-white px-3 text-sm font-medium transition hover:bg-slate-50"
+                                >
+                                  <Camera
+                                    size={14}
+                                    className="mr-2"
+                                  />
+
+                                  Open on Instagram
+
+                                  <ExternalLink
+                                    size={13}
+                                    className="ml-2"
+                                  />
+                                </a>
+                              )}
+                            </div>
+                          </article>
+                        );
+                      }
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            !instagramError && (
+              <div className="p-6 text-sm text-slate-500">
+                Instagram has not been
+                connected.
+              </div>
+            )
+          )}
+        </section>
+      )}
+
       {/* UPLOAD */}
 
       {canUpload && (
@@ -653,10 +1705,9 @@ export default function MediaLibrary({
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Upload an image,
-              video or PDF and
-              attach it to a
-              content version.
+              Upload an image, video or PDF
+              and attach it to a content
+              version.
             </p>
           </div>
 
@@ -743,9 +1794,8 @@ export default function MediaLibrary({
           </form>
 
           <p className="mt-3 text-xs text-slate-400">
-            Maximum file size:
-            4 MB. Supported:
-            images, videos and PDF.
+            Maximum file size: 4 MB.
+            Supported: images, videos and PDF.
           </p>
         </section>
       )}
@@ -821,20 +1871,30 @@ export default function MediaLibrary({
           type="button"
           variant="outline"
           size="sm"
-          onClick={
-            loadData
+          disabled={
+            loading
+          }
+          onClick={() =>
+            void loadData()
           }
         >
-          <RefreshCw
-            size={14}
-            className="mr-2"
-          />
+          {loading ? (
+            <Loader2
+              size={14}
+              className="mr-2 animate-spin"
+            />
+          ) : (
+            <RefreshCw
+              size={14}
+              className="mr-2"
+            />
+          )}
 
           Refresh
         </Button>
       </div>
 
-      {/* ASSETS */}
+      {/* CREATOROPS ASSETS */}
 
       <section className="mt-6">
         {loading ? (
@@ -859,9 +1919,8 @@ export default function MediaLibrary({
             </h3>
 
             <p className="mt-1 text-sm text-slate-500">
-              Uploaded campaign
-              assets will appear
-              here.
+              Uploaded campaign assets will
+              appear here.
             </p>
           </div>
         ) : (
@@ -874,8 +1933,6 @@ export default function MediaLibrary({
                   }
                   className="overflow-hidden rounded-2xl border bg-white shadow-sm"
                 >
-                  {/* PREVIEW */}
-
                   <div className="flex h-52 items-center justify-center bg-slate-100">
                     {asset.mime_type?.startsWith(
                       "image/"
@@ -972,6 +2029,7 @@ export default function MediaLibrary({
                         asset.uploader_name
                       }
                       <br />
+
                       {formatDate(
                         asset.created_at
                       )}
@@ -998,7 +2056,7 @@ export default function MediaLibrary({
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            deleteMedia(
+                            void deleteMedia(
                               asset
                             )
                           }

@@ -17,8 +17,11 @@ import {
 const BUCKET =
   "creatorops-media";
 
-const MAX_FILE_SIZE =
-  4 * 1024 * 1024;
+const MAX_IMAGE_PDF_SIZE =
+  10 * 1024 * 1024;
+
+const MAX_VIDEO_SIZE =
+  50 * 1024 * 1024;
 
 function cleanFileName(
   fileName: string
@@ -461,8 +464,27 @@ export async function POST(
       );
     }
 
-    const formData =
-      await request.formData();
+    let formData: FormData;
+
+    try {
+      formData =
+        await request.formData();
+    } catch (error) {
+      console.error(
+        "Media FormData parse error:",
+        error
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to read the upload body. For larger videos, ensure Next.js proxyClientMaxBodySize is configured above the video size.",
+        },
+        {
+          status: 413,
+        }
+      );
+    }
 
     const contentIdValue =
       formData.get(
@@ -524,21 +546,6 @@ export async function POST(
     }
 
     if (
-      file.size >
-      MAX_FILE_SIZE
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Maximum file size is 4 MB.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (
       !isAllowedFile(
         file
       )
@@ -547,6 +554,32 @@ export async function POST(
         {
           error:
             "Only images, videos and PDF files are supported.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const isVideo =
+      file.type.startsWith(
+        "video/"
+      );
+
+    const maximumSize =
+      isVideo
+        ? MAX_VIDEO_SIZE
+        : MAX_IMAGE_PDF_SIZE;
+
+    if (
+      file.size >
+      maximumSize
+    ) {
+      return NextResponse.json(
+        {
+          error: isVideo
+            ? "Maximum video file size is 50 MB."
+            : "Maximum image/PDF file size is 10 MB.",
         },
         {
           status: 400,

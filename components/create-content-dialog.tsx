@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import {
+  useState,
+  type FormEvent,
+} from "react";
 
 import {
   CalendarDays,
   CheckCircle2,
   FilePlus2,
+  Loader2,
   Plus,
+  Sparkles,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,16 +36,49 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type AIGeneration = {
+  caption: string;
+  hashtags: string[];
+  visualConcept: string;
+};
+
 export default function CreateContentDialog() {
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState(false);
 
-  function handleCreate(event: FormEvent<HTMLFormElement>) {
+  const [title, setTitle] = useState("");
+  const [platform, setPlatform] = useState("");
+  const [contentType, setContentType] = useState("");
+
+  const [caption, setCaption] = useState("");
+  const [hashtags, setHashtags] = useState("");
+
+  const [aiBrief, setAiBrief] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiGeneration, setAiGeneration] =
+    useState<AIGeneration | null>(null);
+
+  function handleCreate(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
-    // Demo only.
-    // Real persistence will be added later.
+    // Existing CreatorOps demo behaviour.
     setCreated(true);
+  }
+
+  function resetForm() {
+    setTitle("");
+    setPlatform("");
+    setContentType("");
+    setCaption("");
+    setHashtags("");
+
+    setAiBrief("");
+    setAiError("");
+    setAiGeneration(null);
+    setAiLoading(false);
   }
 
   function handleOpenChange(value: boolean) {
@@ -48,17 +86,111 @@ export default function CreateContentDialog() {
 
     if (!value) {
       setCreated(false);
+      resetForm();
     }
   }
 
   function closeDialog() {
     setOpen(false);
     setCreated(false);
+    resetForm();
+  }
+
+  async function handleGenerateWithAI() {
+    setAiError("");
+
+    const brief = aiBrief.trim();
+
+    if (brief.length < 5) {
+      setAiError(
+        "Enter a short content brief before generating."
+      );
+      return;
+    }
+
+    try {
+      setAiLoading(true);
+      setAiGeneration(null);
+
+      const response = await fetch(
+        "/api/ai/generate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            brief,
+            campaignName:
+              "Autumn Launch 2026",
+            platform:
+              platform ||
+              "Social Media",
+            existingHashtags:
+              hashtags,
+            brandVoice:
+              "Professional, engaging, modern and natural",
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Unable to generate content."
+        );
+      }
+
+      if (!data.generation) {
+        throw new Error(
+          "AI generation result was missing."
+        );
+      }
+
+      setAiGeneration({
+        caption:
+          data.generation.caption || "",
+        hashtags:
+          data.generation.hashtags || [],
+        visualConcept:
+          data.generation.visualConcept || "",
+      });
+    } catch (error) {
+      console.error(
+        "AI content generation error:",
+        error
+      );
+
+      setAiError(
+        error instanceof Error
+          ? error.message
+          : "Unable to generate AI content."
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function handleUseAIContent() {
+    if (!aiGeneration) {
+      return;
+    }
+
+    setCaption(
+      aiGeneration.caption
+    );
+
+    setHashtags(
+      aiGeneration.hashtags.join(" ")
+    );
   }
 
   return (
     <>
-      {/* CREATE CONTENT BUTTON */}
       <Button
         className="gap-2"
         onClick={() => {
@@ -70,12 +202,11 @@ export default function CreateContentDialog() {
         Create Content
       </Button>
 
-      {/* DIALOG */}
       <Dialog
         open={open}
         onOpenChange={handleOpenChange}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[650px]">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[700px]">
           {!created ? (
             <>
               <DialogHeader>
@@ -84,7 +215,9 @@ export default function CreateContentDialog() {
                 </DialogTitle>
 
                 <DialogDescription>
-                  Add a new content piece to the Autumn Launch 2026 campaign.
+                  Add a new content piece to
+                  the Autumn Launch 2026
+                  campaign.
                 </DialogDescription>
               </DialogHeader>
 
@@ -101,6 +234,12 @@ export default function CreateContentDialog() {
                   <Input
                     id="content-title"
                     placeholder="e.g. Cinnamon Latte Launch Reel"
+                    value={title}
+                    onChange={(event) =>
+                      setTitle(
+                        event.target.value
+                      )
+                    }
                     required
                   />
                 </div>
@@ -112,7 +251,14 @@ export default function CreateContentDialog() {
                       Platform
                     </Label>
 
-                    <Select>
+                    <Select
+                      value={platform}
+                      onValueChange={(value) =>
+                        setPlatform(
+                          value ?? ""
+                        )
+                      }
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select platform" />
                       </SelectTrigger>
@@ -142,7 +288,14 @@ export default function CreateContentDialog() {
                       Content Type
                     </Label>
 
-                    <Select>
+                    <Select
+                      value={contentType}
+                      onValueChange={(value) =>
+                        setContentType(
+                          value ?? ""
+                        )
+                      }
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
@@ -172,6 +325,157 @@ export default function CreateContentDialog() {
                   </div>
                 </div>
 
+                {/* AI ASSISTANT */}
+                <div className="rounded-xl border bg-slate-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100">
+                      <Sparkles
+                        size={18}
+                        className="text-violet-600"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="font-semibold">
+                        CreatorOps AI
+                      </p>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Generate a draft
+                        caption, hashtags and
+                        visual concept using
+                        Gemini.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    <Label htmlFor="ai-brief">
+                      Content Brief
+                    </Label>
+
+                    <Textarea
+                      id="ai-brief"
+                      value={aiBrief}
+                      onChange={(event) =>
+                        setAiBrief(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Example: Promote our new Vitamin C serum for an Instagram Reel. Focus on a fresh morning skincare routine and a premium, optimistic tone."
+                      className="min-h-24 bg-white"
+                    />
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <p className="text-xs text-slate-500">
+                      AI creates a draft only.
+                      Human review is still
+                      required.
+                    </p>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0 gap-2"
+                      onClick={
+                        handleGenerateWithAI
+                      }
+                      disabled={aiLoading}
+                    >
+                      {aiLoading ? (
+                        <>
+                          <Loader2
+                            size={16}
+                            className="animate-spin"
+                          />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles
+                            size={16}
+                          />
+                          Generate with AI
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {aiError ? (
+                    <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+                      <p className="text-sm text-red-700">
+                        {aiError}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {aiGeneration ? (
+                    <div className="mt-4 space-y-4 rounded-xl border bg-white p-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          AI Caption
+                        </p>
+
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                          {
+                            aiGeneration.caption
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Suggested Hashtags
+                        </p>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {aiGeneration.hashtags.map(
+                            (
+                              hashtag,
+                              index
+                            ) => (
+                              <span
+                                key={`${hashtag}-${index}`}
+                                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                              >
+                                {hashtag}
+                              </span>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Visual Concept
+                        </p>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-700">
+                          {
+                            aiGeneration.visualConcept
+                          }
+                        </p>
+                      </div>
+
+                      <div className="flex justify-end border-t pt-4">
+                        <Button
+                          type="button"
+                          className="gap-2"
+                          onClick={
+                            handleUseAIContent
+                          }
+                        >
+                          <Sparkles
+                            size={16}
+                          />
+                          Use This Content
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
                 {/* CAPTION */}
                 <div className="space-y-2">
                   <Label htmlFor="caption">
@@ -182,6 +486,12 @@ export default function CreateContentDialog() {
                     id="caption"
                     placeholder="Write the content caption..."
                     className="min-h-32"
+                    value={caption}
+                    onChange={(event) =>
+                      setCaption(
+                        event.target.value
+                      )
+                    }
                   />
                 </div>
 
@@ -194,6 +504,12 @@ export default function CreateContentDialog() {
                   <Input
                     id="hashtags"
                     placeholder="#UrbanBrew #AutumnLaunch #Coffee"
+                    value={hashtags}
+                    onChange={(event) =>
+                      setHashtags(
+                        event.target.value
+                      )
+                    }
                   />
                 </div>
 
@@ -293,7 +609,8 @@ export default function CreateContentDialog() {
                     />
 
                     <p className="mt-3 text-[11px] text-slate-400">
-                      Upload is simulated in the current demo build.
+                      Upload is simulated in the
+                      current demo build.
                     </p>
                   </div>
                 </div>
@@ -305,8 +622,10 @@ export default function CreateContentDialog() {
                   </p>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    New content will be created as a Draft and can then be
-                    submitted for internal review.
+                    New content will be created
+                    as a Draft and can then be
+                    submitted for internal
+                    review.
                   </p>
                 </div>
 
@@ -331,7 +650,6 @@ export default function CreateContentDialog() {
               </form>
             </>
           ) : (
-            /* SUCCESS VIEW */
             <div className="flex flex-col items-center py-10 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
                 <CheckCircle2
@@ -345,8 +663,10 @@ export default function CreateContentDialog() {
               </h2>
 
               <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                The content piece has been added to Autumn Launch 2026 as a
-                draft and is ready for the creation workflow.
+                The content piece has been
+                added to Autumn Launch 2026
+                as a draft and is ready for
+                the creation workflow.
               </p>
 
               <div className="mt-6 rounded-xl bg-slate-50 px-6 py-4">

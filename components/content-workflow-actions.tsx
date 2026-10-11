@@ -45,6 +45,8 @@ type Props = {
   contentId: string;
   status: ContentStatus;
   currentRole: AppRole;
+  platform?: string;
+  contentType?: string;
   onComplete: () => Promise<void> | void;
 };
 
@@ -52,6 +54,8 @@ export default function ContentWorkflowActions({
   contentId,
   status,
   currentRole,
+  platform,
+  contentType,
   onComplete,
 }: Props) {
   const [
@@ -83,6 +87,21 @@ export default function ContentWorkflowActions({
   const isManager =
     currentRole === "admin" ||
     currentRole === "manager";
+
+  const isInstagram =
+    platform === "instagram";
+
+  const isInstagramImagePost =
+    isInstagram &&
+    contentType === "post";
+
+  const isInstagramReel =
+    isInstagram &&
+    contentType === "reel";
+
+  const isInstagramPublishable =
+    isInstagramImagePost ||
+    isInstagramReel;
 
   async function runAction(
     action: WorkflowAction,
@@ -136,6 +155,71 @@ export default function ContentWorkflowActions({
         err instanceof Error
           ? err.message
           : "Workflow action failed.";
+
+      setError(message);
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
+  async function publishToInstagram() {
+    const confirmed =
+      window.confirm(
+        isInstagramReel
+          ? "This will publish the approved video as a real Instagram Reel. Continue?"
+          : "This will publish the approved image live to Instagram. Continue?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setLoadingAction(
+      "publish"
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/integrations/instagram/publish",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                contentId,
+              }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Instagram publishing failed."
+        );
+      }
+
+      setSuccess(
+        data.message ||
+          "Published to Instagram successfully."
+      );
+
+      await onComplete();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Instagram publishing failed.";
 
       setError(message);
     } finally {
@@ -429,11 +513,28 @@ export default function ContentWorkflowActions({
           <Button
             type="button"
             size="sm"
-            onClick={() =>
-              runAction("publish")
-            }
+            onClick={() => {
+              if (
+                isInstagramPublishable
+              ) {
+                void publishToInstagram();
+                return;
+              }
+
+              if (isInstagram) {
+                return;
+              }
+
+              void runAction(
+                "publish"
+              );
+            }}
             disabled={
-              loadingAction !== null
+              loadingAction !== null ||
+              (
+                isInstagram &&
+                !isInstagramPublishable
+              )
             }
           >
             {loadingAction ===
@@ -449,7 +550,11 @@ export default function ContentWorkflowActions({
               />
             )}
 
-            Mark Published
+            {isInstagramPublishable
+              ? "Publish to Instagram"
+              : isInstagram
+                ? "Instagram Type Not Supported"
+                : "Mark Published"}
           </Button>
         )}
       </div>

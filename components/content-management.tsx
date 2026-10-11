@@ -14,11 +14,13 @@ import {
   Check,
   FileText,
   Hash,
+  ImageIcon,
   Loader2,
   Megaphone,
   Pencil,
   Plus,
   Search,
+  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
@@ -96,6 +98,12 @@ type CampaignOption = {
 type CreatorOption = {
   id: string;
   fullName: string;
+};
+
+type AIGeneration = {
+  caption: string;
+  hashtags: string[];
+  visualConcept: string;
 };
 
 type ContentForm = {
@@ -335,6 +343,48 @@ export default function ContentManagement({
   ] =
     useState("");
 
+  const [
+    aiBrief,
+    setAiBrief,
+  ] =
+    useState("");
+
+  const [
+    aiLoading,
+    setAiLoading,
+  ] =
+    useState(false);
+
+  const [
+    aiImageLoading,
+    setAiImageLoading,
+  ] =
+    useState(false);
+
+  const [
+    aiError,
+    setAiError,
+  ] =
+    useState("");
+
+  const [
+    aiGeneration,
+    setAiGeneration,
+  ] =
+    useState<AIGeneration | null>(null);
+
+  const [
+    aiImageDataUrl,
+    setAiImageDataUrl,
+  ] =
+    useState("");
+
+  const [
+    aiImageAspectRatio,
+    setAiImageAspectRatio,
+  ] =
+    useState("");
+
   const canCreate =
     currentRole !== "client";
 
@@ -467,7 +517,200 @@ export default function ContentManagement({
     );
   }
 
+  function resetAI() {
+    setAiBrief("");
+    setAiLoading(false);
+    setAiImageLoading(false);
+    setAiError("");
+    setAiGeneration(null);
+    setAiImageDataUrl("");
+    setAiImageAspectRatio("");
+  }
+
+  async function handleGenerateWithAI() {
+    const brief = aiBrief.trim();
+
+    if (brief.length < 5) {
+      setAiError(
+        "Enter a short content brief before generating."
+      );
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError("");
+
+    try {
+      const selectedCampaign =
+        campaigns.find(
+          (campaign) =>
+            campaign.id ===
+            form.campaignId
+        );
+
+      const response =
+        await fetch(
+          "/api/ai/generate",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              brief,
+              campaignName:
+                selectedCampaign?.name ||
+                "Not selected",
+              platform:
+                form.platform,
+              existingHashtags:
+                form.hashtags,
+              brandVoice:
+                "Professional, engaging, modern and natural",
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Unable to generate AI content."
+        );
+      }
+
+      if (!data.generation) {
+        throw new Error(
+          "AI generation result was missing."
+        );
+      }
+
+      setAiGeneration({
+        caption:
+          data.generation.caption ||
+          "",
+        hashtags:
+          data.generation.hashtags ||
+          [],
+        visualConcept:
+          data.generation.visualConcept ||
+          "",
+      });
+    } catch (err) {
+      setAiError(
+        err instanceof Error
+          ? err.message
+          : "Unable to generate AI content."
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function handleGenerateImage() {
+    const brief = aiBrief.trim();
+
+    if (brief.length < 5) {
+      setAiError(
+        "Enter a short content brief before generating an image."
+      );
+      return;
+    }
+
+    setAiImageLoading(true);
+    setAiError("");
+    setAiImageDataUrl("");
+    setAiImageAspectRatio("");
+
+    try {
+      const selectedCampaign =
+        campaigns.find(
+          (campaign) =>
+            campaign.id ===
+            form.campaignId
+        );
+
+      const response =
+        await fetch(
+          "/api/ai/generate-image",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              brief,
+              campaignName:
+                selectedCampaign?.name ||
+                "Not selected",
+              platform:
+                form.platform,
+              contentType:
+                form.contentType,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.details ||
+            data.error ||
+            "Unable to generate AI image."
+        );
+      }
+
+      if (!data.image?.dataUrl) {
+        throw new Error(
+          "AI image result was missing."
+        );
+      }
+
+      setAiImageDataUrl(
+        data.image.dataUrl
+      );
+
+      setAiImageAspectRatio(
+        data.image.aspectRatio ||
+          ""
+      );
+    } catch (err) {
+      setAiError(
+        err instanceof Error
+          ? err.message
+          : "Unable to generate AI image."
+      );
+    } finally {
+      setAiImageLoading(false);
+    }
+  }
+
+  function useAIText() {
+    if (!aiGeneration) {
+      return;
+    }
+
+    updateField(
+      "caption",
+      aiGeneration.caption
+    );
+
+    updateField(
+      "hashtags",
+      aiGeneration.hashtags.join(" "
+      )
+    );
+  }
+
   function openCreate() {
+    resetAI();
+
     setEditingContent(
       null
     );
@@ -496,6 +739,8 @@ export default function ContentManagement({
   function openEdit(
     item: ContentRow
   ) {
+    resetAI();
+
     setEditingContent(
       item
     );
@@ -574,6 +819,7 @@ export default function ContentManagement({
   }
 
   function closeForm() {
+    resetAI();
     setShowForm(false);
     setEditingContent(null);
     setForm(emptyForm);
@@ -594,6 +840,182 @@ export default function ContentManagement({
             )
       )
       .filter(Boolean);
+  }
+
+  async function generatedImageToJpegFile(
+    dataUrl: string,
+    fileName: string
+  ) {
+    const image =
+      new Image();
+
+    image.decoding =
+      "async";
+
+    const loaded =
+      new Promise<void>(
+        (
+          resolve,
+          reject
+        ) => {
+          image.onload =
+            () =>
+              resolve();
+
+          image.onerror =
+            () =>
+              reject(
+                new Error(
+                  "Unable to prepare the generated image for upload."
+                )
+              );
+        }
+      );
+
+    image.src =
+      dataUrl;
+
+    await loaded;
+
+    const canvas =
+      document.createElement(
+        "canvas"
+      );
+
+    canvas.width =
+      image.naturalWidth ||
+      image.width;
+
+    canvas.height =
+      image.naturalHeight ||
+      image.height;
+
+    const context =
+      canvas.getContext(
+        "2d"
+      );
+
+    if (!context) {
+      throw new Error(
+        "Unable to prepare the generated image for upload."
+      );
+    }
+
+    context.drawImage(
+      image,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    const blob =
+      await new Promise<Blob>(
+        (
+          resolve,
+          reject
+        ) => {
+          canvas.toBlob(
+            (result) => {
+              if (
+                !result
+              ) {
+                reject(
+                  new Error(
+                    "Unable to convert the generated image to JPEG."
+                  )
+                );
+
+                return;
+              }
+
+              resolve(
+                result
+              );
+            },
+            "image/jpeg",
+            0.92
+          );
+        }
+      );
+
+    return new File(
+      [
+        blob,
+      ],
+      fileName,
+      {
+        type:
+          "image/jpeg",
+      }
+    );
+  }
+
+  async function uploadGeneratedImage(
+    contentId: string,
+    contentTitle: string
+  ) {
+    if (
+      !aiImageDataUrl
+    ) {
+      return;
+    }
+
+    const safeTitle =
+      contentTitle
+        .trim()
+        .toLowerCase()
+        .replace(
+          /[^a-z0-9]+/g,
+          "-"
+        )
+        .replace(
+          /^-+|-+$/g,
+          ""
+        ) ||
+      "creatorops-ai";
+
+    const file =
+      await generatedImageToJpegFile(
+        aiImageDataUrl,
+        `${safeTitle}-ai-generated.jpg`
+      );
+
+    const formData =
+      new FormData();
+
+    formData.append(
+      "contentId",
+      contentId
+    );
+
+    formData.append(
+      "file",
+      file
+    );
+
+    const response =
+      await fetch(
+        "/api/media",
+        {
+          method:
+            "POST",
+          body:
+            formData,
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (
+      !response.ok
+    ) {
+      throw new Error(
+        data.error ||
+          "Content was created, but the generated image could not be saved to Media."
+      );
+    }
   }
 
   async function handleSubmit(
@@ -686,12 +1108,39 @@ export default function ContentManagement({
       const contentTitle =
         form.title;
 
+      if (
+        !editing &&
+        aiImageDataUrl
+      ) {
+        const createdContentId =
+          data.content?.id ||
+          data.item?.id ||
+          data.createdContent?.id ||
+          data.id ||
+          "";
+
+        if (
+          !createdContentId
+        ) {
+          throw new Error(
+            "Content was created, but CreatorOps could not identify the new content item to attach the generated image."
+          );
+        }
+
+        await uploadGeneratedImage(
+          createdContentId,
+          contentTitle
+        );
+      }
+
       closeForm();
 
       setSuccess(
         editing
           ? `${contentTitle} was updated successfully.`
-          : `${contentTitle} was created successfully.`
+          : aiImageDataUrl
+            ? `${contentTitle} was created and the AI-generated image was saved to Media.`
+            : `${contentTitle} was created successfully.`
       );
 
       await loadContent();
@@ -1041,7 +1490,7 @@ export default function ContentManagement({
                         {
                           campaign.client_name
                         }{" "}
-                        —{" "}
+                        â€”{" "}
                         {
                           campaign.name
                         }
@@ -1279,6 +1728,205 @@ export default function ContentManagement({
                   }
                 />
               </div>
+
+              {/* CREATOROPS AI */}
+
+              {!editingContent && (
+                <div className="space-y-4 rounded-2xl border bg-slate-50 p-5 md:col-span-2">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100">
+                      <Sparkles
+                        size={19}
+                        className="text-violet-700"
+                      />
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold">
+                        CreatorOps AI
+                      </h3>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Describe the content you want. Generate copy or an actual AI image related to the brief.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ai-brief">
+                      AI Creative Brief
+                    </Label>
+
+                    <textarea
+                      id="ai-brief"
+                      rows={4}
+                      value={aiBrief}
+                      onChange={(event) =>
+                        setAiBrief(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Example: Create a premium Instagram Reel creative for a Vitamin C serum. Bright morning skincare setting, warm natural light and fresh citrus-inspired elements."
+                      className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={
+                        handleGenerateWithAI
+                      }
+                      disabled={
+                        aiLoading ||
+                        aiImageLoading
+                      }
+                    >
+                      {aiLoading ? (
+                        <>
+                          <Loader2
+                            size={16}
+                            className="mr-2 animate-spin"
+                          />
+                          Generating copy...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles
+                            size={16}
+                            className="mr-2"
+                          />
+                          Generate Caption
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      onClick={
+                        handleGenerateImage
+                      }
+                      disabled={
+                        aiImageLoading ||
+                        aiLoading
+                      }
+                    >
+                      {aiImageLoading ? (
+                        <>
+                          <Loader2
+                            size={16}
+                            className="mr-2 animate-spin"
+                          />
+                          Generating image...
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon
+                            size={16}
+                            className="mr-2"
+                          />
+                          Generate Image
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-slate-500">
+                    AI output remains a draft and still follows the normal human approval workflow.
+                  </p>
+
+                  {aiError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {aiError}
+                    </div>
+                  )}
+
+                  {aiGeneration && (
+                    <div className="space-y-4 rounded-xl border bg-white p-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Generated Caption
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                          {aiGeneration.caption}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Hashtags
+                        </p>
+                        <p className="mt-2 text-sm text-slate-700">
+                          {aiGeneration.hashtags.join(
+                            " "
+                          )}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Visual Concept
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-slate-700">
+                          {aiGeneration.visualConcept}
+                        </p>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={useAIText}
+                      >
+                        Use Caption & Hashtags
+                      </Button>
+                    </div>
+                  )}
+
+                  {aiImageDataUrl && (
+                    <div className="rounded-xl border bg-white p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            AI Generated Creative
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {aiImageAspectRatio
+                              ? `${aiImageAspectRatio} format`
+                              : "Generated image"}
+                          </p>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={
+                            handleGenerateImage
+                          }
+                          disabled={
+                            aiImageLoading
+                          }
+                        >
+                          Regenerate
+                        </Button>
+                      </div>
+
+                      <div className="mt-4 overflow-hidden rounded-xl border bg-slate-100">
+                        <img
+                          src={aiImageDataUrl}
+                          alt="AI-generated CreatorOps marketing creative"
+                          className="mx-auto max-h-[560px] w-auto max-w-full object-contain"
+                        />
+                      </div>
+
+                      <p className="mt-3 text-xs text-slate-500">
+                        When you create this content item, CreatorOps will convert this draft to JPEG and save it automatically in the Media Library for the approval and publishing workflow.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* CAPTION */}
 
@@ -1645,6 +2293,12 @@ export default function ContentManagement({
                     }
                     currentRole={
                       currentRole
+                    }
+                    platform={
+                      item.platform
+                    }
+                    contentType={
+                      item.content_type
                     }
                     onComplete={
                       loadContent
