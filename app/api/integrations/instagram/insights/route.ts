@@ -84,6 +84,17 @@ type MetricFetchResult = {
   }>;
 };
 
+type MediaCountsResponse =
+  MetaErrorResponse & {
+    like_count?: number;
+    comments_count?: number;
+  };
+
+type MediaCountsResult = {
+  likes: number | null;
+  comments: number | null;
+};
+
 function metaErrorMessage(
   data: MetaErrorResponse,
   fallback: string
@@ -330,6 +341,66 @@ async function fetchMetricsBatch(
           })
         ),
   };
+}
+
+async function fetchMediaCounts(
+  mediaId: string,
+  accessToken: string
+): Promise<MediaCountsResult> {
+  const url =
+    new URL(
+      `${GRAPH_BASE}/${mediaId}`
+    );
+
+  url.searchParams.set(
+    "fields",
+    "like_count,comments_count"
+  );
+
+  url.searchParams.set(
+    "access_token",
+    accessToken
+  );
+
+  try {
+    const response =
+      await fetch(
+        url.toString(),
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+    const data =
+      (await response.json()) as
+        MediaCountsResponse;
+
+    if (!response.ok) {
+      return {
+        likes: null,
+        comments: null,
+      };
+    }
+
+    return {
+      likes:
+        typeof data.like_count ===
+          "number"
+          ? data.like_count
+          : null,
+      comments:
+        typeof data.comments_count ===
+          "number"
+          ? data.comments_count
+          : null,
+    };
+  } catch {
+    return {
+      likes: null,
+      comments: null,
+    };
+  }
 }
 
 function emptyResponse() {
@@ -673,12 +744,21 @@ export async function GET() {
                   ]
                 : STANDARD_METRICS;
 
-            const result =
-              await fetchMetricsBatch(
-                link.external_media_id,
-                metrics,
-                accessToken
-              );
+            const [
+              result,
+              mediaCounts,
+            ] =
+              await Promise.all([
+                fetchMetricsBatch(
+                  link.external_media_id,
+                  metrics,
+                  accessToken
+                ),
+                fetchMediaCounts(
+                  link.external_media_id,
+                  accessToken
+                ),
+              ]);
 
             for (
               const unavailable of
@@ -712,11 +792,13 @@ export async function GET() {
               );
 
             const likes =
+              mediaCounts.likes ??
               asNumber(
                 values.likes
               );
 
             const comments =
+              mediaCounts.comments ??
               asNumber(
                 values.comments
               );
@@ -737,14 +819,17 @@ export async function GET() {
                   .total_interactions
               );
 
+            const componentInteractions =
+              likes +
+              comments +
+              shares +
+              saves;
+
             const interactions =
-              directInteractions >
-              0
-                ? directInteractions
-                : likes +
-                  comments +
-                  shares +
-                  saves;
+              Math.max(
+                directInteractions,
+                componentInteractions
+              );
 
             const engagementRate =
               reach > 0
